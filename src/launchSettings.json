@@ -1,0 +1,17 @@
+{
+  "profiles": {
+    "Docker Compose": {
+      "commandName": "DockerCompose",
+      "commandVersion": "1.0",
+      "composeLaunchAction": "LaunchBrowser",
+      "composeLaunchServiceName": "temperature-api",
+      "composeLaunchUrl": "{Scheme}://localhost:{ServicePort}/temperature",
+      "serviceActions": {
+        "redis-cache": "StartWithoutDebugging",
+        "authentication-api": "StartDebugging",
+        "sql-server-db": "StartWithoutDebugging",
+        "temperature-api": "StartDebugging"
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+@baseUrl=https://localhost:5002
+//@baseUrl=https://app-otelsampletemperatureapi-neu.azurewebsites.net
+@apiKey=DD725D0D9DBB43479B760A0F1C95D43D
+
+GET {{baseUrl}}/temperature?q=Lahti
+x-api-key: {{apiKey}}
+
