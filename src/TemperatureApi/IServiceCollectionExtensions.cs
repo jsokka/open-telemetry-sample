@@ -5,6 +5,7 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using StackExchange.Redis;
+using System.Web;
 using TemperatureApi.Configurations;
 using TemperatureApi.Services;
 
@@ -80,6 +81,8 @@ namespace TemperatureApi
                 options.Headers = $"api-key={apiKey}";
             };
 
+            var filterUlrs = new[] { "monitor.azure.com", "applicationinsights.azure.com" };
+
             services.AddOpenTelemetry()
                 .ConfigureResource(res =>
                     res.AddService(
@@ -93,6 +96,7 @@ namespace TemperatureApi
                         cfg.RecordException = true;
                         cfg.EnrichWithHttpRequest = (activity, req) =>
                         {
+                            // Change root activity display name and set tag.
                             if (req.Path.Value?.Equals("/temperature", StringComparison.InvariantCultureIgnoreCase) == true &&
                                 req.Query.TryGetValue("q", out StringValues value))
                             {
@@ -103,13 +107,26 @@ namespace TemperatureApi
                     });
                     builder.AddHttpClientInstrumentation(cfg =>
                     {
-                        cfg.FilterHttpRequestMessage = (req) =>
+                        // Filter out requests related to Azure monitoring etc.
+                        cfg.FilterHttpRequestMessage = (req) => !Array.Exists(filterUlrs,
+                            url => req.RequestUri!.Authority.Contains(url, StringComparison.InvariantCultureIgnoreCase));
+
+                        cfg.EnrichWithHttpRequestMessage = (activity, req) =>
                         {
-                            return req.RequestUri?.Authority.IndexOf("applicationinsights.azure.com",
-                                    StringComparison.InvariantCultureIgnoreCase) == -1 &&
-                                req.RequestUri?.Authority.IndexOf("monitor.azure.com",
-                                    StringComparison.InvariantCultureIgnoreCase) == -1;
+                            // Mask OpenWeatherMap api key.
+                            if (!req.RequestUri!.Authority.Contains("api.openweathermap.org",
+                                StringComparison.InvariantCultureIgnoreCase))
+                            {
+                                return;
+                            }
+
+                            var query = HttpUtility.ParseQueryString(req.RequestUri.Query);
+                            query.Set("appId", "__masked__");
+
+                            var url = req.RequestUri.ToString();
+                            activity.SetTag("http.url", $"{url[..(url.IndexOf("?"))]}?{query}");
                         };
+
                         cfg.RecordException = true;
                     });
                     builder.AddRedisInstrumentation();
