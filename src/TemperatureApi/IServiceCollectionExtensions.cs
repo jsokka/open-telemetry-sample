@@ -91,6 +91,7 @@ namespace TemperatureApi
                         serviceInstanceId: instanceId))
                 .WithTracing(builder =>
                 {
+                    builder.AddSource(InstrumentationHelper.ActivitySourceName);
                     builder.AddAspNetCoreInstrumentation(cfg =>
                     {
                         cfg.RecordException = true;

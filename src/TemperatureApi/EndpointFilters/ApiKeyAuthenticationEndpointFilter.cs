@@ -1,5 +1,6 @@
 ﻿using AuthenticationApi.Utils;
 using Microsoft.Extensions.Options;
+using System.Diagnostics;
 using TemperatureApi.Configurations;
 using TemperatureApi.Services;
 
@@ -22,14 +23,25 @@ namespace TemperatureApi.EndpointFilters
 
         public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
         {
-            if (!context.HttpContext.TryGetApiKey(out string apiKey))
-            {
-                _logger.LogInformation("ApiKey not provided");
-                return TypedResults.Unauthorized();
-            }
+            ApiKeyValidationResult result;
 
-            var result = await _authenticationApiClient.ValidateApiKey(apiKey, _config.TargetApi,
-                context.HttpContext.RequestAborted);
+            using (var activity = InstrumentationHelper.ActivitySource.StartActivity(nameof(ApiKeyAuthenticationEndpointFilter)))
+            {
+                activity?.AddEvent(new ActivityEvent("Start validating apiKey"));
+
+                if (!context.HttpContext.TryGetApiKey(out string apiKey))
+                {
+                    _logger.LogInformation("ApiKey not provided");
+                    return TypedResults.Unauthorized();
+                }
+
+                activity?.AddTag("temperatureApi.ApiKey", apiKey);
+
+                result = await _authenticationApiClient.ValidateApiKey(apiKey, _config.TargetApi,
+                    context.HttpContext.RequestAborted);
+
+                activity?.AddEvent(new ActivityEvent("ApiKey validation done"));
+            }
 
             return result switch
             {
